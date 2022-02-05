@@ -97,6 +97,7 @@ app.message('set team', async ({ message, say }) => {
   const messageArray = message.text.split(' ');
   if (messageArray[0] != "set" || messageArray[1] != "team") return;
 
+  const user = await findOrCreateUser(message.user);
   let teamOptions = [];
   let teamConfig = await config.findOne({ teams: { $exists: true }});
   let teams = teamConfig.teams ? teamConfig.teams : []; 
@@ -282,11 +283,15 @@ app.message('give bits', async({ message, client, say }) => {
     return await say('Please provide a user. Remember to use @username.');
   }
 
-  const params = messageArray[1].split('>');
+  const params = messageArray[messageArray.length - 1].split('>');
   if (params.length < 2) {
     return await say('Please provide the amount of bits.');
   }
-  const increasedBitsUserId = params[0];
+  let members = [];
+  for (let i = 1; i < messageArray.length; i++) {
+    let msgs = messageArray[i].split('>');
+    members.push(msgs[0]);
+  }
   
   const bitAmount = parseInt(params[1].substring(1));
   if (!bitAmount) {
@@ -297,17 +302,17 @@ app.message('give bits', async({ message, client, say }) => {
       bits: bitAmount
     }
   };
-  if (increasedBitsUserId == "channel") {
+  if (members[0] == "channel") {
     const result = await client.conversations.members({
       channel: message.channel,
     });
-    const members = result.members;
-    await users.updateMany({ userId: {$in: members}}, updateDoc);
-  } else {
-    await users.updateOne({ userId: increasedBitsUserId}, updateDoc);
+    members = result.members;
+  } 
+  for (let i = 0; i < members.length; i++) {
+    await findOrCreateUser(members[i]);
   }
-  
-  await say(`Updated <@${increasedBitsUserId}>\'s bits.`);
+  await users.updateMany({ userId: {$in: members}}, updateDoc);
+  await say(`Updated bits.`);
 });
 
 app.message('give team_bits', async({ message, say }) => {
@@ -339,6 +344,9 @@ app.message('give team_bits', async({ message, say }) => {
       bits: bitAmount
     }
   };
+  for (let i = 0; i < team.length; i++) {
+    await findOrCreateUser(team[i]);
+  }
   await users.updateMany({ team: team }, updateDoc);
   await say(`Updated team ${team}\'s bits.`);
 });
