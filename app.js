@@ -446,7 +446,7 @@ app.action('change_team', async ({ body, ack, say }) => {
     }
   };
   await users.updateOne({ userId: userId }, updateDoc);
-  await botReply('Team changed!', message, say);
+  await say('Team changed!');
 });
 
 (async () => {
