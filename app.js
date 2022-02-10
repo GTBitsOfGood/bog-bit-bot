@@ -69,6 +69,7 @@ app.message('help', async ({ message, say }) => {
     + "profile                       See your current profile.\n" 
     + "set team                      Set your current team.\n"
     + "teams                         See the current list of teams.\n"
+    + "leaderboard teams             See the current team leaderboard for bits.\n"
     + "leaderboard [amt]             See the current bit leaderboard. Optional param for length. \n```" , message, say);
   });
 
@@ -85,7 +86,7 @@ app.message('help exec', async ({ message, say }) => {
   + "remove teams {team1, team2...}  Add teams to the team list.\n"
   + "set role {user} {role}          Set a user's role. Options are exec, leader, member.\n"
   + "give bits {user, channel} {amt} Give a user bits. Use @username or @channel.\n"
-  + "give team_bits {team} {amt}     Give a team bits. Check team list with set team command.\n```", message, say);
+  + "give team_bits {team} {amt}     Give a team bits. Check team list with teams command.\n```", message, say);
 });
   
 app.message('bits', async ({ message, say }) => {
@@ -186,7 +187,7 @@ app.message('checkin', async({ message, say }) => {
       await botReply(`Please visit ${formConfig.form} to fill out today's form.`, message, say);
     }
   } else {
-    await botReply(`Incorrect password.`);
+    await botReply(`Incorrect password.`, message, say);
   }  
 })
 
@@ -417,22 +418,45 @@ app.message('leaderboard', async({ message, say }) => {
   await findOrCreateUser(message.user);
   const messageArray = message.text.split(' ');
   if (messageArray[0] != "leaderboard") return; 
+  
   let limit = 10;
   if (messageArray.length > 1) {
     if (parseInt(messageArray[1])) {
       limit = parseInt(messageArray[1])
-    } else {
+    } else if (messageArray[1] != "teams") {
       return await botReply(`Provide an integer limit.`, message, say);
     }
+    if (limit <= 0) {
+      return await botReply(`Provide a positive limit.`, message, say);
+    }
+  }
+
+  if (messageArray[1] == "teams") {
+    let bitArray = users.aggregate([{ 
+      $group: {
+        _id: "$team", count: { $sum: "$bits" }
+      }
+    }, {
+      $sort: {
+        count: -1
+      }
+    }])
     
+    let leaderboardString = ``;
+    for await (const doc of bitArray) {
+      leaderboardString += `>${doc._id}: ${doc.count} bits \n`;
+    }
+    await say("Current Team Leaderboard:");
+    await say(leaderboardString);
+  } else {
+    const sortedUsers = await users.find().sort({ bits: -1 }).toArray();
+    let leaderboardString = ``;
+    for (let i = 0; i < limit && i < sortedUsers.length; i++) {
+      leaderboardString += `><@${sortedUsers[i].userId}>: ${sortedUsers[i].bits} bits \n`;
+    }
+    await say("Current Leaderboard:");
+    await say(leaderboardString);
   }
-  const sortedUsers = await users.find().sort({ bits: -1 }).toArray();
-  let leaderboardString = ``;
-  for (let i = 0; i < limit && i < sortedUsers.length; i++) {
-    leaderboardString += `><@${sortedUsers[i].userId}>: ${sortedUsers[i].bits} bits \n`;
-  }
-  await say("Current Leaderboard:");
-  await say(leaderboardString);
 });
 
 app.action('change_team', async ({ body, ack, say }) => {
