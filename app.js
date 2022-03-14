@@ -51,8 +51,6 @@ const botReply = async (text, message, say1) => {
 const app = new App({
   token: process.env.SLACK_BOT_TOKEN,
   signingSecret: process.env.SLACK_SIGNING_SECRET,
-  socketMode: true,
-  appToken: process.env.SLACK_APP_TOKEN,
   port: process.env.PORT || 3000,
 });
 
@@ -85,7 +83,8 @@ app.message("help exec", async ({ message, say }) => {
       "help [role]                     See this command. Optional role param for extra commands.\n" +
       "set password {password}         Set attendance password.\n" +
       "set form {form_link}            Set attendance form link.\n" +
-      "remove form {form_link}         Removes form link. Only necessary if there is no form.\n" +
+      "remove form                     Removes form link. Only necessary if there is no form.\n" +
+      "reset users                     Resets all users' bits. Only use when starting new semester.\n" +
       "add teams {team1, team2...}     Add teams to the team list.\n" +
       "remove teams {team1, team2...}  Add teams to the team list.\n" +
       "set role {user} {role}          Set a user's role. Options are exec, leader, member.\n" +
@@ -492,6 +491,22 @@ app.message("remove form", async ({ message, say }) => {
   }
   await config.deleteOne({ form: { $exists: true } });
   await botReply(`Removed form.`, message, say);
+});
+
+app.message("reset users", async ({ message, say }) => {
+  const messageArray = message.text.split(" ");
+  if (messageArray[0] != "reset" || messageArray[1] != "users") return;
+
+  const user = await findOrCreateUser(message.user);
+  if (user.role != "exec") {
+    return await botReply(
+      "Insufficient Permissions. Contact exec if you need access.",
+      message,
+      say
+    );
+  }
+  await users.drop();
+  await botReply(`Reset all users.`, message, say);
 });
 
 app.message("leaderboard", async ({ message, say }) => {
